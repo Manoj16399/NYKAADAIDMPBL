@@ -21,13 +21,25 @@ Created for the Marketing and Sales Directors to guide targeted actions.
 def load_data():
     df = pd.read_csv("nykaa_synthetic_customer_data_v2.csv")
 
-    # Clean and normalize column names
+    # Show column names for debug
+    st.write("🔍 Column Names in CSV:", df.columns.tolist())
+
+    # Normalize column names
     df.columns = df.columns.str.strip().str.lower().str.replace(" ", "_")
 
-    # Rename standard columns
+    # Expected columns: 'invoice_date', 'customer_id', 'invoiceno', 'region', 'total_amount'
+    required_cols = ['invoice_date', 'customer_id', 'invoiceno', 'region', 'total_amount']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        st.error(f"❌ Missing columns in dataset: {missing_cols}")
+        st.stop()
+
+    # Rename to camel case for consistency
     df.rename(columns={
         'invoice_date': 'InvoiceDate',
         'customer_id': 'CustomerID',
+        'invoiceno': 'InvoiceNo',
+        'region': 'Region',
         'total_amount': 'TotalAmount'
     }, inplace=True)
 
@@ -38,12 +50,12 @@ df = load_data()
 
 # ---------- SIDEBAR FILTERS ---------
 st.sidebar.header("🔍 Filters")
-region = st.sidebar.selectbox("Select Region", options=["All"] + sorted(df['region'].unique().tolist()))
+region = st.sidebar.selectbox("Select Region", options=["All"] + sorted(df['Region'].unique().tolist()))
 date_range = st.sidebar.date_input("Select Invoice Date Range", [df['InvoiceDate'].min(), df['InvoiceDate'].max()])
 
 # Apply filters
 if region != "All":
-    df = df[df['region'] == region]
+    df = df[df['Region'] == region]
 df = df[(df['InvoiceDate'] >= pd.to_datetime(date_range[0])) & (df['InvoiceDate'] <= pd.to_datetime(date_range[1]))]
 
 # ---------- TABS ----------
@@ -61,7 +73,7 @@ with tabs[0]:
 
     st.subheader("2. 🌍 Sales by Region")
     st.markdown("See which regions generate the most revenue.")
-    region_sales = df.groupby('region')['TotalAmount'].sum().sort_values(ascending=False)
+    region_sales = df.groupby('Region')['TotalAmount'].sum().sort_values(ascending=False)
     st.bar_chart(region_sales)
 
     st.subheader("3. 👥 Customer Count")
@@ -76,7 +88,7 @@ with tabs[1]:
     snapshot_date = df['InvoiceDate'].max() + pd.Timedelta(days=1)
     rfm = df.groupby('CustomerID').agg({
         'InvoiceDate': lambda x: (snapshot_date - x.max()).days,
-        'invoiceno': 'nunique',
+        'InvoiceNo': 'nunique',
         'TotalAmount': 'sum'
     }).reset_index()
     rfm.columns = ['CustomerID', 'Recency', 'Frequency', 'Monetary']
@@ -104,7 +116,7 @@ with tabs[2]:
 
     cltv_data = df.groupby('CustomerID').agg({
         'InvoiceDate': [np.min, np.max],
-        'invoiceno': 'count',
+        'InvoiceNo': 'count',
         'TotalAmount': 'sum'
     })
     cltv_data.columns = ['min_date', 'max_date', 'frequency', 'monetary']
@@ -133,11 +145,11 @@ with tabs[3]:
     st.subheader("6. 📉 First-Time Buyer Churn Analysis")
     st.markdown("Identifying drop-off post first purchase.")
 
-    txn_count = df.groupby('CustomerID')['invoiceno'].nunique()
+    txn_count = df.groupby('CustomerID')['InvoiceNo'].nunique()
     first_time_buyers = txn_count[txn_count == 1].index
     first_time_df = df[df['CustomerID'].isin(first_time_buyers)]
 
-    churn_by_region = first_time_df.groupby('region')['CustomerID'].nunique().sort_values(ascending=False)
+    churn_by_region = first_time_df.groupby('Region')['CustomerID'].nunique().sort_values(ascending=False)
     fig = px.bar(churn_by_region, title="First-Time Buyers by Region")
     st.plotly_chart(fig, use_container_width=True)
 
