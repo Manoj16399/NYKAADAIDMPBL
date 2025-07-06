@@ -20,6 +20,11 @@ Created for the Marketing and Sales Directors to guide targeted actions.
 @st.cache_data
 def load_data():
     df = pd.read_csv("nykaa_synthetic_customer_data_v2.csv")
+    df.rename(columns={
+        'Invoice Date': 'InvoiceDate',
+        'Customer ID': 'CustomerID',
+        'Total Amount': 'TotalAmount'
+    }, inplace=True)
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
     return df
 
